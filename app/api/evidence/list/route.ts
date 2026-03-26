@@ -1,8 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getPublicClient } from '@/lib/contractViem';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '@/lib/contractViem';
 
-// Helper function để chuyển đổi BigInt thành số
 const serializeEvidence = (evidence: any) => {
   return {
     evidenceId: evidence.evidenceId,
@@ -10,13 +9,16 @@ const serializeEvidence = (evidence: any) => {
     fileHash: evidence.fileHash,
     fileURI: evidence.fileURI,
     creator: evidence.creator,
-    createdAt: Number(evidence.createdAt), //
-    status: Number(evidence.status),       //
+    createdAt: Number(evidence.createdAt),
+    status: Number(evidence.status),
   };
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const caseId = searchParams.get('caseId');
+
     const publicClient = getPublicClient();
 
     // Lấy tất cả evidence IDs
@@ -37,7 +39,7 @@ export async function GET() {
             functionName: 'getEvidence',
             args: [id],
           });
-          return serializeEvidence(evidence); // 👈 Serialize trước khi trả về
+          return serializeEvidence(evidence);
         } catch (err) {
           console.error(`Error fetching evidence ${id}:`, err);
           return null;
@@ -46,7 +48,14 @@ export async function GET() {
     );
 
     // Lọc bỏ các evidence bị lỗi
-    const validEvidences = evidences.filter(ev => ev !== null);
+    let validEvidences = evidences.filter(ev => ev !== null);
+
+    // 👉 THÊM: Lọc theo caseId nếu có
+    if (caseId) {
+      validEvidences = validEvidences.filter(
+        (ev: any) => ev.caseId.toLowerCase() === caseId.toLowerCase()
+      );
+    }
 
     return NextResponse.json({
       success: true,
