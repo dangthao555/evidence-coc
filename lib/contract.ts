@@ -2,12 +2,19 @@ import { ethers } from 'ethers';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from './contractViem';
 
 export const getContract = async (withSigner: boolean = false) => {
-  if (typeof window === 'undefined') return null;
+  // Nếu đang ở server-side, dùng provider mặc định
+  if (typeof window === 'undefined') {
+    const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+    return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+  }
 
   const ethereum = (window as any).ethereum;
+
+  // Nếu không có MetaMask, dùng RPC provider
   if (!ethereum) {
-    console.error('MetaMask not installed');
-    return null;
+    console.log('MetaMask not installed, using RPC provider');
+    const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL);
+    return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
   }
 
   try {
@@ -20,6 +27,8 @@ export const getContract = async (withSigner: boolean = false) => {
     return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
   } catch (error) {
     console.error('Failed to get contract:', error);
-    return null;
+    // Fallback: dùng RPC provider
+    const provider = new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_RPC_URL);
+    return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
   }
 };
