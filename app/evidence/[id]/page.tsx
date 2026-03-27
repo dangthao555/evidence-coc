@@ -35,6 +35,7 @@ const ACTION_NAMES: Record<string, { label: string; icon: string }> = {
   CREATED: { label: 'Tài liệu bằng chứng', icon: '📄' },
   REVIEW_STARTED: { label: 'Bắt đầu xem xét', icon: '🔍' },
   VERIFIED: { label: 'Xác minh hoàn tất', icon: '✅' },
+  REJECTED: { label: 'Từ chối', icon: '❌' },
   ARCHIVED: { label: 'Đã lưu trữ', icon: '📦' },
 };
 
@@ -45,6 +46,15 @@ export default function EvidenceDetailPage() {
   const [custodyHistory, setCustodyHistory] = useState<CustodyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [user, setUser] = useState<any>(null);
+
+  // Lấy thông tin user
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+  }, []);
 
   useEffect(() => {
     const fetchEvidence = async () => {
@@ -116,6 +126,13 @@ export default function EvidenceDetailPage() {
     return `${baseName}...${ext ? `.${ext}` : ''}`;
   };
 
+  // Kiểm tra quyền xem file
+  const canViewFile = () => {
+    if (!user) return false;
+    // OFFICER (1), ANALYST (2), COURT (3), ADMIN
+    return user.role === 1 || user.role === 2 || user.role === 3 || user.isAdmin === true;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -146,7 +163,7 @@ export default function EvidenceDetailPage() {
 
   return (
     <div className="max-w-6xl mx-auto py-4 md:py-6">
-      {/* Header - Nút quay lại chỉ icon */}
+      {/* Header - Nút quay lại */}
       <div className="mb-6">
         <Link
           href="/dashboard/evidence"
@@ -290,17 +307,26 @@ export default function EvidenceDetailPage() {
             Đây là hash của file bằng chứng, dùng để xác thực tính toàn vẹn của file.
           </p>
           <div className="mt-5">
-            <a
-              href={evidence.fileURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-cyan-700 transition-all shadow-sm hover:shadow-md"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Tải xuống / Xem file
-            </a>
+            {canViewFile() ? (
+              <a
+                href={evidence.fileURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-medium hover:from-blue-700 hover:to-cyan-700 transition-all shadow-sm hover:shadow-md"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Tải xuống / Xem file
+              </a>
+            ) : (
+              <div className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-xl">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6-4h12a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z" />
+                </svg>
+                Chỉ cán bộ có thẩm quyền mới được xem nội dung
+              </div>
+            )}
           </div>
         </div>
       </div>

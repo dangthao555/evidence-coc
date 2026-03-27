@@ -50,7 +50,6 @@ export async function GET(request: NextRequest) {
     // Lọc bỏ các evidence bị lỗi
     let validEvidences = evidences.filter(ev => ev !== null);
 
-    // 👉 THÊM: Lọc theo caseId nếu có
     if (caseId) {
       validEvidences = validEvidences.filter(
         (ev: any) => ev.caseId.toLowerCase() === caseId.toLowerCase()
