@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getContract } from '@/lib/contract';
 
@@ -42,11 +42,15 @@ const ACTION_NAMES: Record<string, { label: string; icon: string }> = {
 export default function EvidenceDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [evidence, setEvidence] = useState<Evidence | null>(null);
   const [custodyHistory, setCustodyHistory] = useState<CustodyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [user, setUser] = useState<any>(null);
+
+  // Lấy tham số from để biết nguồn quay lại
+  const from = searchParams.get('from');
 
   // Lấy thông tin user
   useEffect(() => {
@@ -129,8 +133,16 @@ export default function EvidenceDetailPage() {
   // Kiểm tra quyền xem file
   const canViewFile = () => {
     if (!user) return false;
-    // OFFICER (1), ANALYST (2), COURT (3), ADMIN
     return user.role === 1 || user.role === 2 || user.role === 3 || user.isAdmin === true;
+  };
+
+  // Xử lý quay lại theo nguồn
+  const handleBack = () => {
+    if (from === 'case' && evidence?.caseId) {
+      router.push(`/dashboard/cases/${evidence.caseId}`);
+    } else {
+      router.push('/dashboard/cases');
+    }
   };
 
   if (loading) {
@@ -150,12 +162,15 @@ export default function EvidenceDetailPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <p className="text-red-600 dark:text-red-400 mb-4">{error || 'Không tìm thấy bằng chứng'}</p>
-          <Link href="/dashboard/evidence" className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline">
+          <button
+            onClick={handleBack}
+            className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            Quay lại danh sách
-          </Link>
+            Quay lại
+          </button>
         </div>
       </div>
     );
@@ -165,15 +180,15 @@ export default function EvidenceDetailPage() {
     <div className="max-w-6xl mx-auto py-4 md:py-6">
       {/* Header - Nút quay lại */}
       <div className="mb-6">
-        <Link
-          href="/dashboard/evidence"
+        <button
+          onClick={handleBack}
           className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           aria-label="Quay lại"
         >
           <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-        </Link>
+        </button>
       </div>
 
       {/* Title và Status */}
@@ -183,7 +198,9 @@ export default function EvidenceDetailPage() {
             {evidence.evidenceId}
           </h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Vụ án: <span className="font-mono">{evidence.caseId}</span>
+            Vụ án: <Link href={`/dashboard/cases/${evidence.caseId}`} className="font-mono text-blue-600 hover:underline">
+              {evidence.caseId}
+            </Link>
           </p>
         </div>
         <span className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 ${STATUS_MAP[evidence.status]?.color}`}>
@@ -194,7 +211,7 @@ export default function EvidenceDetailPage() {
         </span>
       </div>
 
-      {/* Grid 2 cột */}
+      {/* Grid 2 cột - giữ nguyên */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Thông tin bằng chứng */}
         <div className="lg:col-span-2">
@@ -241,7 +258,7 @@ export default function EvidenceDetailPage() {
           </div>
         </div>
 
-        {/* Chuỗi lưu ký */}
+        {/* Chuỗi lưu ký - giữ nguyên */}
         <div className="lg:col-span-1">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden sticky top-6">
             <div className="border-b border-gray-100 dark:border-gray-700 px-6 py-4">
@@ -289,7 +306,7 @@ export default function EvidenceDetailPage() {
         </div>
       </div>
 
-      {/* File Hash và Tải file */}
+      {/* File Hash và Tải file - giữ nguyên */}
       <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="border-b border-gray-100 dark:border-gray-700 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">

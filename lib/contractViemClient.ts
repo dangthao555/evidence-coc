@@ -202,8 +202,9 @@ export const rejectEvidence = async (evidenceId: string) => {
   }
 };
 
-// ============ ARCHIVE EVIDENCE ============
-export const archiveEvidence = async (evidenceId: string) => {
+// ============ CASE FUNCTIONS ============
+
+export const createCase = async (caseId: string, title: string, description: string) => {
   const provider = await detectEthereumProvider();
   if (!provider) throw new Error('Vui lòng cài MetaMask!');
 
@@ -232,8 +233,8 @@ export const archiveEvidence = async (evidenceId: string) => {
   const { request } = await publicClient.simulateContract({
     address: CONTRACT_ADDRESS,
     abi: CONTRACT_ABI,
-    functionName: 'archiveEvidence',
-    args: [evidenceId],
+    functionName: 'createCase',
+    args: [caseId, title, description],
     account: walletClient.account,
   });
 
@@ -249,3 +250,80 @@ export const archiveEvidence = async (evidenceId: string) => {
   }
 };
 
+export const archiveCase = async (caseId: string) => {
+  const provider = await detectEthereumProvider();
+  if (!provider) throw new Error('Vui lòng cài MetaMask!');
+
+  const ethereum = provider as any;
+  const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+
+  const walletClient = createWalletClient({
+    account: accounts[0] as `0x${string}`,
+    chain: sepolia,
+    transport: custom(ethereum),
+  });
+
+  const publicClient = createPublicClient({
+    chain: sepolia,
+    transport: http(RPC_URL, { timeout: 30000 }),
+  });
+
+  const chainId = await ethereum.request({ method: 'eth_chainId' });
+  if (chainId !== '0xaa36a7') {
+    await ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0xaa36a7' }],
+    });
+  }
+
+  const { request } = await publicClient.simulateContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: 'archiveCase',
+    args: [caseId],
+    account: walletClient.account,
+  });
+
+  try {
+    const hash = await walletClient.writeContract(request);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    return receipt;
+  } catch (error: any) {
+    if (error.message?.includes('User rejected')) {
+      throw new Error('Bạn đã từ chối ký giao dịch trong MetaMask.');
+    }
+    throw error;
+  }
+};
+
+export const getCase = async (caseId: string) => {
+  const publicClient = createPublicClient({
+    chain: sepolia,
+    transport: http(RPC_URL, { timeout: 30000 }),
+  });
+
+  const caseData = await publicClient.readContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: 'getCase',
+    args: [caseId],
+  });
+
+  return caseData;
+};
+
+export const getEvidenceByCase = async (caseId: string) => {
+  const publicClient = createPublicClient({
+    chain: sepolia,
+    transport: http(RPC_URL, { timeout: 30000 }),
+  });
+
+  const evidenceIds = await publicClient.readContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: 'getEvidenceByCase',
+    args: [caseId],
+  });
+
+  return evidenceIds;
+};

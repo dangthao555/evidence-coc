@@ -1,17 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getContract } from '@/lib/contract';
+
+interface Case {
+  caseId: string;
+  title: string;
+}
 
 export default function UploadEvidencePage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [caseId, setCaseId] = useState('');
+  const [cases, setCases] = useState<Case[]>([]);
+  const [loadingCases, setLoadingCases] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [txHash, setTxHash] = useState('');
+
+  // Fetch danh sách case đang ACTIVE
+  useEffect(() => {
+    const fetchCases = async () => {
+      try {
+        const res = await fetch('/api/cases/list?status=active');
+        const data = await res.json();
+        if (res.ok) {
+          setCases(data.data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching cases:', error);
+      } finally {
+        setLoadingCases(false);
+      }
+    };
+    fetchCases();
+  }, []);
 
   const calculateFileHash = async (file: File): Promise<string> => {
     const buffer = await file.arrayBuffer();
@@ -60,8 +85,8 @@ export default function UploadEvidencePage() {
       return;
     }
 
-    if (!caseId.trim()) {
-      setError('Vui lòng nhập Case ID');
+    if (!caseId) {
+      setError('Vui lòng chọn vụ án');
       return;
     }
 
@@ -123,20 +148,42 @@ export default function UploadEvidencePage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Case ID Field */}
+          {/* Case ID Field - Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Mã vụ án <span className="text-red-500">*</span>
+              Vụ án <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              value={caseId}
-              onChange={(e) => setCaseId(e.target.value)}
-              placeholder="Nhập mã vụ án (VD: CASE001)"
-              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              required
-              disabled={loading}
-            />
+            {loadingCases ? (
+              <div className="px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800 text-gray-500">
+                Đang tải danh sách vụ án...
+              </div>
+            ) : cases.length === 0 ? (
+              <div className="px-4 py-2.5 border border-yellow-200 dark:border-yellow-800 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400">
+                Chưa có vụ án nào đang xử lý. Vui lòng tạo vụ án trước.
+                <button
+                  type="button"
+                  onClick={() => router.push('/dashboard/cases')}
+                  className="ml-2 underline"
+                >
+                  Tạo vụ án
+                </button>
+              </div>
+            ) : (
+              <select
+                value={caseId}
+                onChange={(e) => setCaseId(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+                disabled={loading}
+              >
+                <option value="">-- Chọn vụ án --</option>
+                {cases.map((c) => (
+                  <option key={c.caseId} value={c.caseId}>
+                    {c.caseId} - {c.title}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* File Upload Field */}
@@ -217,10 +264,10 @@ export default function UploadEvidencePage() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || cases.length === 0}
             className={`
               w-full py-3 rounded-xl font-medium transition-all
-              ${loading 
+              ${loading || cases.length === 0
                 ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed' 
                 : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:from-blue-700 hover:to-cyan-700 active:scale-[0.98] shadow-md hover:shadow-lg'
               }
