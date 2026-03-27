@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { startReview, markVerified } from '@/lib/contractViemClient';
+import { startReview, markVerified, rejectEvidence } from '@/lib/contractViemClient';
 
 interface Evidence {
   evidenceId: string;
@@ -14,12 +14,13 @@ interface Evidence {
   status: number;
 }
 
-const STATUS_MAP: { [key: number]: { label: string; color: string } } = {
-  0: { label: 'Đã tải lên', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
-  1: { label: 'Đang xem xét', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  2: { label: 'Đã xác thực', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-  3: { label: 'Đã lưu trữ', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-400' },
-};
+const STATUS_MAP = [
+  { label: 'Đã tải lên', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' },
+  { label: 'Đang xem xét', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+  { label: 'Đã xác thực', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+  { label: 'Từ chối', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+  { label: 'Đã lưu trữ', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-400', icon: 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4' },
+];
 
 export default function ReviewPage() {
   const [uploadedEvidences, setUploadedEvidences] = useState<Evidence[]>([]);
@@ -34,6 +35,7 @@ export default function ReviewPage() {
       const res = await fetch('/api/evidence/list');
       const data = await res.json();
       if (res.ok) {
+        // Chỉ lấy status 0 (UPLOADED) và 1 (UNDER_REVIEW)
         const uploaded = data.data.filter((ev: Evidence) => ev.status === 0);
         const underReview = data.data.filter((ev: Evidence) => ev.status === 1);
         setUploadedEvidences(uploaded);
@@ -85,6 +87,26 @@ export default function ReviewPage() {
     }
   };
 
+  // 👉 THÊM HÀM TỪ CHỐI
+  const handleReject = async (evidenceId: string) => {
+    setActionLoading(evidenceId);
+    try {
+      const receipt = await rejectEvidence(evidenceId);
+      console.log('Rejected:', receipt.transactionHash);
+      await fetchEvidences();
+      alert('Đã từ chối bằng chứng!');
+    } catch (err: any) {
+      console.error('Reject error:', err);
+      if (err.message?.includes('User rejected')) {
+        alert('Bạn đã từ chối ký giao dịch.');
+      } else {
+        alert(err.message || 'Không thể từ chối');
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   useEffect(() => {
     fetchEvidences();
   }, []);
@@ -129,7 +151,7 @@ export default function ReviewPage() {
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
           <Link
-            href={`/evidence/${encodeURIComponent(evidence.evidenceId)}`}
+            href={`/evidence/${encodeURIComponent(evidence.evidenceId)}?from=review`}
             className="font-mono text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
           >
             {evidence.evidenceId}
@@ -152,9 +174,9 @@ export default function ReviewPage() {
         </div>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap">
         <Link
-          href={`/evidence/${encodeURIComponent(evidence.evidenceId)}`}
+          href={`/evidence/${encodeURIComponent(evidence.evidenceId)}?from=review`}
           className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300"
         >
           Xem chi tiết
@@ -171,13 +193,22 @@ export default function ReviewPage() {
         )}
 
         {showVerifyButton && (
-          <button
-            onClick={() => handleVerify(evidence.evidenceId)}
-            disabled={actionLoading === evidence.evidenceId}
-            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            {actionLoading === evidence.evidenceId ? 'Đang xử lý' : 'Xác thực'}
-          </button>
+          <>
+            <button
+              onClick={() => handleVerify(evidence.evidenceId)}
+              disabled={actionLoading === evidence.evidenceId}
+              className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              {actionLoading === evidence.evidenceId ? 'Đang xử lý' : 'Xác thực'}
+            </button>
+            <button
+              onClick={() => handleReject(evidence.evidenceId)}
+              disabled={actionLoading === evidence.evidenceId}
+              className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {actionLoading === evidence.evidenceId ? 'Đang xử lý' : 'Từ chối'}
+            </button>
+          </>
         )}
       </div>
     </div>

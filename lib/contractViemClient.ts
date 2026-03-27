@@ -153,3 +153,99 @@ export const markVerified = async (evidenceId: string) => {
     throw error;
   }
 };
+
+// Thêm vào cuối file contractViemClient.ts
+
+export const rejectEvidence = async (evidenceId: string) => {
+  const provider = await detectEthereumProvider();
+  if (!provider) throw new Error('Vui lòng cài MetaMask!');
+
+  const ethereum = provider as any;
+  const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+
+  const walletClient = createWalletClient({
+    account: accounts[0] as `0x${string}`,
+    chain: sepolia,
+    transport: custom(ethereum),
+  });
+
+  const publicClient = createPublicClient({
+    chain: sepolia,
+    transport: http(RPC_URL, { timeout: 30000 }),
+  });
+
+  const chainId = await ethereum.request({ method: 'eth_chainId' });
+  if (chainId !== '0xaa36a7') {
+    await ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0xaa36a7' }],
+    });
+  }
+
+  const { request } = await publicClient.simulateContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: 'rejectEvidence',
+    args: [evidenceId],
+    account: walletClient.account,
+  });
+
+  try {
+    const hash = await walletClient.writeContract(request);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    return receipt;
+  } catch (error: any) {
+    if (error.message?.includes('User rejected')) {
+      throw new Error('Bạn đã từ chối ký giao dịch trong MetaMask.');
+    }
+    throw error;
+  }
+};
+
+// ============ ARCHIVE EVIDENCE ============
+export const archiveEvidence = async (evidenceId: string) => {
+  const provider = await detectEthereumProvider();
+  if (!provider) throw new Error('Vui lòng cài MetaMask!');
+
+  const ethereum = provider as any;
+  const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+
+  const walletClient = createWalletClient({
+    account: accounts[0] as `0x${string}`,
+    chain: sepolia,
+    transport: custom(ethereum),
+  });
+
+  const publicClient = createPublicClient({
+    chain: sepolia,
+    transport: http(RPC_URL, { timeout: 30000 }),
+  });
+
+  const chainId = await ethereum.request({ method: 'eth_chainId' });
+  if (chainId !== '0xaa36a7') {
+    await ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: '0xaa36a7' }],
+    });
+  }
+
+  const { request } = await publicClient.simulateContract({
+    address: CONTRACT_ADDRESS,
+    abi: CONTRACT_ABI,
+    functionName: 'archiveEvidence',
+    args: [evidenceId],
+    account: walletClient.account,
+  });
+
+  try {
+    const hash = await walletClient.writeContract(request);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    return receipt;
+  } catch (error: any) {
+    if (error.message?.includes('User rejected')) {
+      throw new Error('Bạn đã từ chối ký giao dịch trong MetaMask.');
+    }
+    throw error;
+  }
+};
+
